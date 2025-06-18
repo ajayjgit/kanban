@@ -99,3 +99,79 @@ export const getTaskHistory = async (req: Request, res: Response) => {
   if (!task) return res.status(404).json({ message: 'Task not found' });
   res.json(task.history);
 };
+
+
+// Add Comment
+export const addComment = async (req: Request & { user?: any }, res: Response) => {
+  const task = await Task.findById(req.params.id);
+  if (!task) return res.status(404).json({ message: 'Task not found' });
+
+  const comment = {
+    user: req.user.id,
+    text: req.body.text,
+    createdAt: new Date()
+  };
+
+  task.comments.push(comment);
+  await task.save();
+
+  res.status(201).json({ message: 'Comment added', comment });
+};
+
+// Get Comments
+export const getComments = async (req: Request, res: Response) => {
+  const task = await Task.findById(req.params.id).populate('comments.user', 'name email');
+  if (!task) return res.status(404).json({ message: 'Task not found' });
+
+  res.json(task.comments);
+};
+
+// Delete Comment
+export const deleteComment = async (req: Request & { user?: any }, res: Response) => {
+  const { id, commentId } = req.params;
+
+  const task = await Task.findById(id);
+  if (!task) return res.status(404).json({ message: 'Task not found' });
+
+  const commentIndex = task.comments.findIndex((c: any) => c._id.toString() === commentId);
+
+  if (commentIndex === -1) return res.status(404).json({ message: 'Comment not found' });
+
+  const comment = task.comments[commentIndex];
+  const isOwner = comment.user.toString() === req.user.id;
+
+  if (!isOwner) return res.status(403).json({ message: 'Not authorized to delete this comment' });
+
+  task.comments.splice(commentIndex, 1);
+  await task.save();
+
+  res.json({ message: 'Comment deleted' });
+};
+
+
+// Assign Task to User
+export const assignTask = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { userId } = req.body;
+
+  const task = await Task.findById(id);
+  if (!task) return res.status(404).json({ message: 'Task not found' });
+
+  task.assignedTo = userId;
+  await task.save();
+
+  res.json({ message: 'Task assigned successfully', task });
+};
+
+// Unassign Task from User
+export const unassignTask = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const task = await Task.findById(id);
+  if (!task) return res.status(404).json({ message: 'Task not found' });
+
+  task.assignedTo = null;
+  await task.save();
+
+  res.json({ message: 'Task unassigned successfully', task });
+};

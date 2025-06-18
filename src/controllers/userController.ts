@@ -16,30 +16,3 @@ export const updateProfile = async (req: Request & { user?: any }, res: Response
   if (!user) return res.status(404).json({ message: 'User not found' });
   res.json(user);
 };
-
-// Assign Task to User
-export const assignTask = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { userId } = req.body;
-
-  const task = await Task.findById(id);
-  if (!task) return res.status(404).json({ message: 'Task not found' });
-
-  task.assignedTo = userId;
-  await task.save();
-
-  res.json({ message: 'Task assigned successfully', task });
-};
-
-// Unassign Task from User
-export const unassignTask = async (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  const task = await Task.findById(id);
-  if (!task) return res.status(404).json({ message: 'Task not found' });
-
-  task.assignedTo = null;
-  await task.save();
-
-  res.json({ message: 'Task unassigned successfully', task });
-};

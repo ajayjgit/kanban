@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Kanban Backend Infra - EC2, RDS, S3, IAM
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: EC2 instance type
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 SSH Key pair name
+
+  DBUsername:
+    Type: String
+    Default: admin
+    NoEcho: true
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+Resources:
+
+  KanbanS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub kanban-${Environment}-assets
+
+  KanbanIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub kanban-${Environment}-ec2-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: KanbanAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                  - logs:*
+                Resource: "*"
+
+  KanbanInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref KanbanIAMRole
+
+  KanbanEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref KanbanInstanceProfile
+      ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2 AMI (update to your region)
+      Tags:
+        - Key: Name
+          Value: !Sub kanban-${Environment}-backend
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y git docker
+          service docker start
+          usermod -a -G docker ec2-user
+          curl -sL https://rpm.nodesource.com/setup_18.x | bash -
+          yum install -y nodejs
+          git clone https://github.com/your-repo/kanban-backend.git /home/ec2-user/app
+          cd /home/ec2-user/app
+          npm install
+          npm run build
+          npm start
+  
+
+Outputs:
+  EC2PublicIP:
+    Description: Public IP of EC2 Instance
+    Value: !GetAtt KanbanEC2Instance.PublicIp
+
+
+  S3BucketName:
+    Description: S3 Bucket for assets
+    Value: !Ref KanbanS3Bucket
