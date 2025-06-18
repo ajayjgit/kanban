@@ -40,5 +40,5 @@ This is the backend for the Kanban Board application, built with Node.js, TypeSc
 
   ############################################################
   ## Docker
+  docker-compose up 
 
-  
